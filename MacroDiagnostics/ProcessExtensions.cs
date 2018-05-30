@@ -2,10 +2,12 @@
 using System.Diagnostics;
 using System.Threading;
 using System.Linq;
-using MacroGuards;
 using System.Text;
 using System.Collections.Generic;
 using System.IO;
+using MacroGuards;
+using MacroSystem;
+
 
 namespace
 MacroDiagnostics
@@ -15,6 +17,118 @@ MacroDiagnostics
 public static class
 ProcessExtensions
 {
+
+
+/// <summary>
+/// Run a .NET program, capturing its output
+/// </summary>
+///
+/// <remarks>
+/// If the current process is running under a .NET framework "driver" program such as <c>dotnet</c> or <c>mono</c>, it
+/// will be used to run the specified program.
+/// </remarks>
+///
+/// <param name="echoCommandLine">
+/// Echo full command line to stderr?
+/// </param>
+///
+/// <param name="echoOutput">
+/// Echo stdout and stderr output?
+/// </param>
+///
+/// <param name="workingDirectory">
+/// Absolute path to existent working directory
+/// - OR -
+/// <c>null</c> to use the current process's working directory
+/// </param>
+///
+/// <param name="fileName">
+/// Filename of the program to run, if it is on the system <c>path</c>
+/// - OR -
+/// Full path to the program to run
+/// </param>
+///
+/// <param name="arguments">
+/// Arguments to pass to the program.  Those containing space characters will be quoted, unless they also contain quote
+/// characters in which case they are assumed to be pre-quoted.
+/// </param>
+///
+/// <returns>
+/// A <see cref="ProcessExecuteResult"/> containing the program's output and exit code
+/// </returns>
+///
+public static ProcessExecuteResult
+ExecuteDotnetCaptured(
+    bool echoCommandLine,
+    bool echoOutput,
+    string workingDirectory,
+    string fileName,
+    params string[] arguments)
+{
+    if (EnvironmentExtensions.DotnetProgram != null)
+    {
+        arguments = new[]{ fileName }.Concat(arguments).ToArray();
+        fileName = EnvironmentExtensions.DotnetProgram;
+    }
+
+    return ExecuteCaptured(echoCommandLine, echoOutput, workingDirectory, fileName, arguments);
+}
+
+
+/// <summary>
+/// Run a .NET program
+/// </summary>
+///
+/// <remarks>
+/// If the current process is running under a .NET framework "driver" program such as <c>dotnet</c> or <c>mono</c>, it
+/// will be used to run the specified program.
+/// </remarks>
+///
+/// <param name="echoCommandLine">
+/// Echo full command line to stderr?
+/// </param>
+///
+/// <param name="echoOutput">
+/// Echo stdout and stderr output?
+/// </param>
+///
+/// <param name="workingDirectory">
+/// Absolute path to existent working directory
+/// - OR -
+/// <c>null</c> to use the current process's working directory
+/// </param>
+///
+/// <param name="fileName">
+/// Filename of the program to run, if it is on the system <c>path</c>
+/// - OR -
+/// Full path to the program to run
+/// </param>
+///
+/// <param name="arguments">
+/// Arguments to pass to the program.  Those containing space characters will be quoted, unless they also contain quote
+/// characters in which case they are assumed to be pre-quoted.
+/// </param>
+///
+/// <returns>
+/// The exit code from the program
+/// </returns>
+///
+public static int
+ExecuteDotnet(
+    bool echoCommandLine,
+    bool echoOutput,
+    string workingDirectory,
+    string fileName,
+    params string[] arguments)
+{
+    if (EnvironmentExtensions.DotnetProgram != null)
+    {
+        arguments = new[]{ fileName }.Concat(arguments).ToArray();
+        fileName = EnvironmentExtensions.DotnetProgram;
+    }
+
+    return Execute(echoCommandLine, echoOutput, workingDirectory, fileName, arguments);
+}
 
 
 /// <summary>
