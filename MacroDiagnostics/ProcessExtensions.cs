@@ -470,6 +470,7 @@ Execute(
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
         while (!exited) Thread.Yield();
+        proc.WaitForExit();
 
         return proc.ExitCode;
     }
