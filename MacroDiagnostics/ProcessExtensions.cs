@@ -289,19 +289,7 @@ namespace MacroDiagnostics
             string fileName,
             params string[] arguments)
         {
-            Action<string> onCommandLine = null;
-            Action<string> onStandardOutput = null;
-            Action<string> onErrorOutput = null;
-            if (echoCommandLine)
-            {
-                onCommandLine = s => Console.Error.WriteLine(s);
-            }
-            if (echoOutput)
-            {
-                onStandardOutput = s => Console.Out.WriteLine(s);
-                onErrorOutput = s => Console.Error.WriteLine(s);
-            }
-            return Execute(onCommandLine, onStandardOutput, onErrorOutput, workingDirectory, fileName, arguments);
+            return ExecuteCaptured(echoCommandLine, echoOutput, workingDirectory, fileName, arguments).ExitCode;
         }
 
 
@@ -347,40 +335,60 @@ namespace MacroDiagnostics
             var combinedOutput = new StringBuilder();
             var standardOutput = new StringBuilder();
             var errorOutput = new StringBuilder();
+            int? exitCode = null;
+            object locker = new object();
 
             Action<string> onCommandLine = s => {
-                if (echoCommandLine) Console.Error.WriteLine(s);
-                commandLine = s;
+                lock (locker)
+                {
+                    if (echoCommandLine) Console.Error.WriteLine(s);
+                    commandLine = s;
+                }
             };
 
             Action<string> onStandardOutput = s => {
-                if (echoOutput) Console.Out.WriteLine(s);
-                combinedOutput.AppendLine(s);
-                standardOutput.AppendLine(s);
+                lock (locker)
+                {
+                    if (echoOutput) Console.Out.WriteLine(s);
+                    combinedOutput.AppendLine(s);
+                    standardOutput.AppendLine(s);
+                }
             };
 
             Action<string> onErrorOutput = s => {
-                if (echoOutput) Console.Error.WriteLine(s);
-                combinedOutput.AppendLine(s);
-                errorOutput.AppendLine(s);
+                lock (locker)
+                {
+                    if (echoOutput) Console.Error.WriteLine(s);
+                    combinedOutput.AppendLine(s);
+                    errorOutput.AppendLine(s);
+                }
             };
 
-            int exitCode =
-                Execute(onCommandLine, onStandardOutput, onErrorOutput, workingDirectory, fileName, arguments);
+            Action<int> onExited = i => {
+                lock (locker)
+                {
+                    exitCode = i;
+                    Monitor.PulseAll(locker);
+                }
+            };
+
+            Execute(onCommandLine, onStandardOutput, onErrorOutput, onExited, workingDirectory, fileName, arguments);
+            lock (locker) while (exitCode == null) Monitor.Wait(locker);
 
             return new ProcessExecuteResult(
                 commandLine,
                 standardOutput.ToString(),
                 errorOutput.ToString(),
                 combinedOutput.ToString(),
-                exitCode);
+                exitCode.Value);
         }
 
 
-        static int Execute(
+        static void Execute(
             Action<string> onCommandLine,
             Action<string> onStandardOutput,
             Action<string> onErrorOutput,
+            Action<int> onExited,
             string workingDirectory,
             string fileName,
             params string[] arguments)
@@ -402,19 +410,21 @@ namespace MacroDiagnostics
             startInfo.UseShellExecute = false;
             startInfo.WorkingDirectory = workingDirectory;
                     
-            return Execute(onCommandLine, onStandardOutput, onErrorOutput, startInfo);
+            Execute(onCommandLine, onStandardOutput, onErrorOutput, onExited, startInfo);
         }
 
 
-        static int Execute(
+        static void Execute(
             Action<string> onCommandLine,
             Action<string> onStandardOutput,
             Action<string> onErrorOutput,
+            Action<int> onExited,
             ProcessStartInfo startInfo)
         {
             onCommandLine = onCommandLine ?? (_ => {});
             onStandardOutput = onStandardOutput ?? (_ => {});
             onErrorOutput = onErrorOutput ?? (_ => {});
+            onExited = onExited ?? (_ => {});
             Guard.NotNull(startInfo, nameof(startInfo));
 
             var commandLine = startInfo.FileName;
@@ -423,42 +433,31 @@ namespace MacroDiagnostics
             if (startInfo.Arguments.Length > 0)
                 commandLine = string.Concat(commandLine, " ", startInfo.Arguments);
                     
-            using (var proc = new Process())
-            {
-                proc.StartInfo = startInfo;
+            var proc = new Process();
+            proc.StartInfo = startInfo;
 
-                bool exited = false;
-                object outputLock = new object();
+            proc.StartInfo.RedirectStandardOutput = true;
+            proc.OutputDataReceived += (_,e) => {
+                onStandardOutput(e.Data ?? "");
+            };
 
-                proc.StartInfo.RedirectStandardOutput = true;
-                proc.OutputDataReceived += (_,e) => {
-                    lock (outputLock)
-                    {
-                        onStandardOutput(e.Data ?? "");
-                    }
-                };
+            proc.StartInfo.RedirectStandardError = true;
+            proc.ErrorDataReceived += (_,e) => {
+                onErrorOutput(e.Data ?? "");
+            };
 
-                proc.StartInfo.RedirectStandardError = true;
-                proc.ErrorDataReceived += (_,e) => {
-                    lock (outputLock)
-                    {
-                        onErrorOutput(e.Data ?? "");
-                    }
-                };
-
-                proc.EnableRaisingEvents = true;
-                proc.Exited += (_,__) => exited = true;
-
-                onCommandLine(commandLine);
-
-                proc.Start();
-                proc.BeginOutputReadLine();
-                proc.BeginErrorReadLine();
-                while (!exited) Thread.Yield();
+            proc.EnableRaisingEvents = true;
+            proc.Exited += (_,__) => {
                 proc.WaitForExit();
+                onExited(proc.ExitCode);
+                proc.Dispose();
+            };
 
-                return proc.ExitCode;
-            }
+            onCommandLine(commandLine);
+
+            proc.Start();
+            proc.BeginOutputReadLine();
+            proc.BeginErrorReadLine();
         }
 
 
