@@ -30,21 +30,21 @@ namespace MacroDiagnostics
         /// Command line
         /// </summary>
         ///
-        public string CommandLine { get; private set; }
+        public string CommandLine { get; }
 
 
         /// <summary>
         /// Standard output
         /// </summary>
         ///
-        public string StandardOutput { get; private set; }
+        public string StandardOutput { get; }
 
 
         /// <summary>
         /// Standard error output
         /// </summary>
         ///
-        public string ErrorOutput { get; private set; }
+        public string ErrorOutput { get; }
 
 
         /// <summary>
@@ -56,14 +56,14 @@ namespace MacroDiagnostics
         /// as they were generated.
         /// </remarks>
         ///
-        public string CombinedOutput { get; private set; }
+        public string CombinedOutput { get; }
 
 
         /// <summary>
         /// The process' exit code
         /// </summary>
         ///
-        public int ExitCode { get; private set; }
+        public int ExitCode { get; }
 
     }
 }
