@@ -4,58 +4,14 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace MacroDiagnostics.Tests
+namespace MacroDiagnostics.Tests.ProcessExtensionsTests
 {
-
     [TestClass]
-    public class ProcessExtensionsTests
+    public class ExecuteCapturedTests : ProcessExtensionsTest
     {
 
-        static readonly string TestExe;
-
-
-        static ProcessExtensionsTests()
-        {
-            string frameworkMoniker;
-            #if NET472
-            frameworkMoniker = "net472";
-            #elif NETCOREAPP3_1
-            frameworkMoniker = "netcoreapp3.1";
-            #else
-            #error Unrecognised build framework
-            #endif
-
-            TestExe = 
-                Path.GetFullPath(
-                    Path.Combine(
-                        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
-                        "..", "..", "..", "..",
-                        "MacroDiagnostics.Tests.TestExe", "bin", "Debug",
-                        frameworkMoniker,
-                        "MacroDiagnostics.Tests.TestExe.exe"));
-        }
-
-
         [TestMethod]
-        public void Execute_Succeeds()
-        {
-            Assert.AreEqual(
-                0,
-                ProcessExtensions.Execute(true, true, null, TestExe));
-        }
-
-
-        [TestMethod]
-        public void Execute_Returns_Correct_ExitCode()
-        {
-            Assert.AreEqual(
-                123,
-                ProcessExtensions.Execute(true, true, null, TestExe, "123"));
-        }
-
-
-        [TestMethod]
-        public void ExecuteCaptured_Passes_Arguments_Correctly()
+        public void Passes_Arguments_Correctly()
         {
             var result = ProcessExtensions.ExecuteCaptured(true, true, null, TestExe, "a b c", "d", "\"e f\"");
             Assert.IsTrue(result.StandardOutput.Contains("arg0: a b c"));
@@ -65,7 +21,7 @@ namespace MacroDiagnostics.Tests
 
 
         [TestMethod]
-        public void ExecuteCaptured_Captures_CommandLine()
+        public void Captures_CommandLine()
         {
             var result = ProcessExtensions.ExecuteCaptured(true, true, null, TestExe);
             Assert.IsFalse(string.IsNullOrWhiteSpace(result.CommandLine));
@@ -73,7 +29,7 @@ namespace MacroDiagnostics.Tests
 
 
         [TestMethod]
-        public void ExecuteCaptured_Captures_Output_Correctly()
+        public void Captures_Output_Correctly()
         {
             var result = ProcessExtensions.ExecuteCaptured(true, true, null, TestExe);
 
@@ -110,7 +66,7 @@ namespace MacroDiagnostics.Tests
 
 
         [TestMethod]
-        public void ExecuteCaptured_Uses_Current_WorkingDirectory_By_Default()
+        public void Uses_Current_WorkingDirectory_By_Default()
         {
             var result = ProcessExtensions.ExecuteCaptured(true, true, null, TestExe, "workingdirectory");
             Assert.AreEqual(
@@ -120,7 +76,7 @@ namespace MacroDiagnostics.Tests
 
 
         [TestMethod]
-        public void ExecuteCaptured_Uses_Specified_WorkingDirectory()
+        public void Uses_Specified_WorkingDirectory()
         {
             var here = Path.GetFullPath(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
             var testWorkingDirectory = Path.Combine(here, "testworkingdirectory");
@@ -135,7 +91,7 @@ namespace MacroDiagnostics.Tests
 
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
-        public void ExecuteCaptured_Relative_WorkingDirectory_Fails()
+        public void Relative_WorkingDirectory_Fails()
         {
             ProcessExtensions.ExecuteCaptured(true, true, "relative\\path", TestExe, "workingdirectory");
         }
@@ -143,7 +99,7 @@ namespace MacroDiagnostics.Tests
 
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
-        public void ExecuteCaptured_Non_Existent_WorkingDirectory_Fails()
+        public void Non_Existent_WorkingDirectory_Fails()
         {
             ProcessExtensions.ExecuteCaptured(true, true, "C:\\does\\not\\exist", TestExe, "workingdirectory");
         }

@@ -1,15 +1,14 @@
 using System.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace MacroDiagnostics.Tests
+namespace MacroDiagnostics.Tests.LogicalOperationTests
 {
-
     [TestClass]
-    public class LogicalOperationTests
+    public class StartTests
     {
 
         [TestMethod]
-        public void Start_Pushes_And_Pops_Correctly()
+        public void Pushes_And_Pops_Correctly()
         {
             int initialCount = Trace.CorrelationManager.LogicalOperationStack.Count;
             string op = "op";
