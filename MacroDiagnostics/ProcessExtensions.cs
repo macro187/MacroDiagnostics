@@ -294,6 +294,156 @@ namespace MacroDiagnostics
 
 
         /// <summary>
+        /// Run a native binary executable program and read its output as it runs
+        /// </summary>
+        ///
+        /// <param name="successExitCodes">
+        /// List of exit code(s) to consider successful
+        /// </param>
+        ///
+        /// <param name="workingDirectory">
+        /// Absolute path to existent working directory
+        /// - OR -
+        /// <c>null</c> to use the current process's working directory
+        /// </param>
+        ///
+        /// <param name="fileName">
+        /// Full path to the program to run
+        /// </param>
+        ///
+        /// <param name="arguments">
+        /// Arguments to pass to the program.  Those containing space characters will be quoted, unless they also
+        /// contain quote characters in which case they are assumed to be pre-quoted.
+        /// </param>
+        ///
+        /// <returns>
+        /// Lines of standard output as they are produced by the program
+        /// </returns>
+        ///
+        /// <exception cref="ProcessExecuteException">
+        /// The process exited with an exit code not in <paramref name="successExitCodes"/>
+        /// </exception>
+        ///
+        public static IEnumerable<string> ExecuteAndRead(
+            IReadOnlyCollection<int> successExitCodes,
+            string workingDirectory,
+            string fileName,
+            params string[] arguments)
+        {
+            successExitCodes = successExitCodes ?? new[]{ 0 };
+
+            object locker = new object();
+            string commandLine = "";
+            var outputQueue = new Queue<string>();
+            var standardOutput = new StringBuilder();
+            var errorOutput = new StringBuilder();
+            var combinedOutput = new StringBuilder();
+            int? exitCode = null;
+
+            void OnCommandLine(string s)
+            {
+                lock (locker)
+                {
+                    commandLine = s;
+                }
+            }
+
+            void OnStandardOutput(string s)
+            {
+                lock (locker)
+                {
+                    standardOutput.AppendLine(s);
+                    combinedOutput.AppendLine(s);
+                    outputQueue.Enqueue(s);
+                    Monitor.PulseAll(locker);
+                }
+            }
+
+            void OnErrorOutput(string s)
+            {
+                lock (locker)
+                {
+                    combinedOutput.AppendLine(s);
+                    errorOutput.AppendLine(s);
+                }
+            }
+
+            void OnExited(int i)
+            {
+                lock (locker)
+                {
+                    exitCode = i;
+                    Monitor.PulseAll(locker);
+                }
+            }
+
+            //
+            // Start the process...
+            //
+            Execute(OnCommandLine, OnStandardOutput, OnErrorOutput, OnExited, workingDirectory, fileName, arguments);
+
+            //
+            // ...and while it runs, repeatedly...
+            //
+            while (true)
+            {
+                bool shouldThrow = false;
+                bool shouldReturn = false;
+                string line = null;
+
+                lock (locker)
+                {
+                    //
+                    // ...wait for it to produce some output or exit...
+                    //
+                    while (exitCode == null && outputQueue.Count == 0) Monitor.Wait(locker);
+
+                    //
+                    // ...decide what to do about it...
+                    //
+                    if (exitCode.HasValue && !successExitCodes.Contains(exitCode.Value))
+                    {
+                        shouldThrow = true;
+                    }
+                    else if (exitCode.HasValue && outputQueue.Count == 0)
+                    {
+                        shouldReturn = true;
+                    }
+                    else
+                    {
+                        line = outputQueue.Count > 0 ? outputQueue.Dequeue() : null;
+                    }
+                }
+
+                //
+                // ...and do it
+                //
+                if (shouldThrow)
+                {
+                    throw
+                        new ProcessExecuteException(
+                            new ProcessExecuteResult(
+                                commandLine,
+                                standardOutput.ToString(),
+                                errorOutput.ToString(),
+                                combinedOutput.ToString(),
+                                exitCode.Value));
+                }
+
+                if (shouldReturn)
+                {
+                    break;
+                }
+
+                if (line != null)
+                {
+                    yield return line;
+                }
+            }
+        }
+
+
+        /// <summary>
         /// Run a native binary executable program, capturing its output
         /// </summary>
         ///
@@ -438,12 +588,12 @@ namespace MacroDiagnostics
 
             proc.StartInfo.RedirectStandardOutput = true;
             proc.OutputDataReceived += (_,e) => {
-                onStandardOutput(e.Data ?? "");
+                if (e.Data != null) onStandardOutput(e.Data);
             };
 
             proc.StartInfo.RedirectStandardError = true;
             proc.ErrorDataReceived += (_,e) => {
-                onErrorOutput(e.Data ?? "");
+                if (e.Data != null) onErrorOutput(e.Data);
             };
 
             proc.EnableRaisingEvents = true;
