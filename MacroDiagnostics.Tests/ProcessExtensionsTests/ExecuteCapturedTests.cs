@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Shouldly;
 
 namespace MacroDiagnostics.Tests.ProcessExtensionsTests
 {
@@ -10,13 +11,17 @@ namespace MacroDiagnostics.Tests.ProcessExtensionsTests
     public class ExecuteCapturedTests : ProcessExtensionsTest
     {
 
+        string Lines(params string[] lines) =>
+            string.Concat(lines.Select(line => line + Environment.NewLine));
+
+
         [TestMethod]
         public void Passes_Arguments_Correctly()
         {
             var result = ProcessExtensions.ExecuteCaptured(true, true, null, TestExe, "a b c", "d", "\"e f\"");
-            Assert.IsTrue(result.StandardOutput.Contains("arg0: a b c"));
-            Assert.IsTrue(result.StandardOutput.Contains("arg1: d"));
-            Assert.IsTrue(result.StandardOutput.Contains("arg2: e f"));
+            result.StandardOutput.ShouldContain("arg0: a b c");
+            result.StandardOutput.ShouldContain("arg1: d");
+            result.StandardOutput.ShouldContain("arg2: e f");
         }
 
 
@@ -24,7 +29,7 @@ namespace MacroDiagnostics.Tests.ProcessExtensionsTests
         public void Captures_CommandLine()
         {
             var result = ProcessExtensions.ExecuteCaptured(true, true, null, TestExe);
-            Assert.IsFalse(string.IsNullOrWhiteSpace(result.CommandLine));
+            result.CommandLine.ShouldNotBeNullOrWhiteSpace();
         }
 
 
@@ -33,35 +38,36 @@ namespace MacroDiagnostics.Tests.ProcessExtensionsTests
         {
             var result = ProcessExtensions.ExecuteCaptured(true, true, null, TestExe);
 
-            Assert.AreEqual(
-                string.Join(Environment.NewLine,
+            result.StandardOutput.ShouldBe(
+                Lines(
                     "aaa",
                     "bbb",
-                    "ccc"),
-                result.StandardOutput.Trim());
+                    "",
+                    "ccc"));
 
-            Assert.AreEqual(
-                string.Join(Environment.NewLine,
+            result.ErrorOutput.ShouldBe(
+                Lines(
                     "ddd",
                     "eee",
-                    "fff"),
-                result.ErrorOutput.Trim());
+                    "",
+                    "fff"));
 
-            Assert.AreEqual(
-                string.Join(Environment.NewLine,
-                    "aaa",
-                    "bbb",
-                    "ccc",
-                    "ddd",
-                    "eee",
-                    "fff"),
-                string.Join(Environment.NewLine,
-                    result.CombinedOutput
-                        .Trim()
-                        .Split(new[] { Environment.NewLine }, StringSplitOptions.None)
-                        .OrderBy(s => s)));
+                
+            result.CombinedOutput.Trim().Split(new[]{Environment.NewLine}, StringSplitOptions.None)
+                .ShouldBe(
+                    new[]{
+                        "aaa",
+                        "bbb",
+                        "",
+                        "ccc",
+                        "ddd",
+                        "eee",
+                        "",
+                        "fff",
+                    },
+                    ignoreOrder: true);
 
-            Assert.AreEqual(0, result.ExitCode);
+            result.ExitCode.ShouldBe(0);
         }
 
 
@@ -69,9 +75,7 @@ namespace MacroDiagnostics.Tests.ProcessExtensionsTests
         public void Uses_Current_WorkingDirectory_By_Default()
         {
             var result = ProcessExtensions.ExecuteCaptured(true, true, null, TestExe, "workingdirectory");
-            Assert.AreEqual(
-                Path.GetFullPath(Environment.CurrentDirectory),
-                result.StandardOutput.Trim());
+            result.StandardOutput.Trim().ShouldBe(Path.GetFullPath(Environment.CurrentDirectory));
         }
 
 
@@ -83,25 +87,23 @@ namespace MacroDiagnostics.Tests.ProcessExtensionsTests
             Directory.CreateDirectory(testWorkingDirectory);
             var result =
                 ProcessExtensions.ExecuteCaptured(true, true, testWorkingDirectory, TestExe, "workingdirectory");
-            Assert.AreEqual(
-                testWorkingDirectory,
-                result.StandardOutput.Trim());
+            result.StandardOutput.Trim().ShouldBe(testWorkingDirectory);
         }
 
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void Relative_WorkingDirectory_Fails()
         {
-            ProcessExtensions.ExecuteCaptured(true, true, "relative\\path", TestExe, "workingdirectory");
+            Should.Throw<ArgumentException>(() =>
+                ProcessExtensions.ExecuteCaptured(true, true, "relative\\path", TestExe, "workingdirectory"));
         }
 
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void Non_Existent_WorkingDirectory_Fails()
         {
-            ProcessExtensions.ExecuteCaptured(true, true, "C:\\does\\not\\exist", TestExe, "workingdirectory");
+            Should.Throw<ArgumentException>(() =>
+                ProcessExtensions.ExecuteCaptured(true, true, "C:\\does\\not\\exist", TestExe, "workingdirectory"));
         }
 
     }

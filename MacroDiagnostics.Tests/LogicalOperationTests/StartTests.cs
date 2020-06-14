@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Shouldly;
 
 namespace MacroDiagnostics.Tests.LogicalOperationTests
 {
@@ -15,11 +16,11 @@ namespace MacroDiagnostics.Tests.LogicalOperationTests
 
             using (LogicalOperation.Start(op))
             {
-                Assert.AreEqual(initialCount + 1, Trace.CorrelationManager.LogicalOperationStack.Count);
-                Assert.AreEqual(op, Trace.CorrelationManager.LogicalOperationStack.Peek() as string);
+                Trace.CorrelationManager.LogicalOperationStack.Count.ShouldBe(initialCount + 1);
+                Trace.CorrelationManager.LogicalOperationStack.Peek().ShouldBe(op);
             }
 
-            Assert.AreEqual(initialCount, Trace.CorrelationManager.LogicalOperationStack.Count);
+            Trace.CorrelationManager.LogicalOperationStack.Count.ShouldBe(initialCount);
         }
 
     }

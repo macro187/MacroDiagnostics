@@ -38,9 +38,11 @@ namespace MacroDiagnostics.Tests.TestExe
             {
                 Console.Out.WriteLine("aaa");
                 Console.Out.WriteLine("bbb");
+                Console.Out.WriteLine("");
                 Console.Out.WriteLine("ccc");
                 Console.Error.WriteLine("ddd");
                 Console.Error.WriteLine("eee");
+                Console.Error.WriteLine("");
                 Console.Error.WriteLine("fff");
                 return 0;
             }
