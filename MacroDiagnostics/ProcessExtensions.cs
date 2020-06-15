@@ -301,6 +301,16 @@ namespace MacroDiagnostics
         /// List of exit code(s) to consider successful
         /// </param>
         ///
+        /// <param name="captureStandardOutput">
+        /// Whether to capture standard output and include it with the exception that occurs if the program exits
+        /// unsuccessfully
+        /// </param>
+        ///
+        /// <param name="captureErrorOutput">
+        /// Whether to capture error output and include it with the exception that occurs if the program exits
+        /// unsuccessfully
+        /// </param>
+        ///
         /// <param name="workingDirectory">
         /// Absolute path to existent working directory
         /// - OR -
@@ -326,6 +336,8 @@ namespace MacroDiagnostics
         ///
         public static IEnumerable<string> ExecuteAndRead(
             IReadOnlyCollection<int> successExitCodes,
+            bool captureStandardOutput,
+            bool captureErrorOutput,
             string workingDirectory,
             string fileName,
             params string[] arguments)
@@ -352,8 +364,8 @@ namespace MacroDiagnostics
             {
                 lock (locker)
                 {
-                    standardOutput.AppendLine(s);
-                    combinedOutput.AppendLine(s);
+                    if (captureStandardOutput) standardOutput.AppendLine(s);
+                    if (captureStandardOutput) combinedOutput.AppendLine(s);
                     outputQueue.Enqueue(s);
                     Monitor.PulseAll(locker);
                 }
@@ -363,8 +375,8 @@ namespace MacroDiagnostics
             {
                 lock (locker)
                 {
-                    combinedOutput.AppendLine(s);
-                    errorOutput.AppendLine(s);
+                    if (captureErrorOutput) errorOutput.AppendLine(s);
+                    if (captureErrorOutput) combinedOutput.AppendLine(s);
                 }
             }
 

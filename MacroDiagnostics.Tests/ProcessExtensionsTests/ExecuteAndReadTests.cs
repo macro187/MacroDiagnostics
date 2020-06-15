@@ -11,7 +11,7 @@ namespace MacroDiagnostics.Tests.ProcessExtensionsTests
         [TestMethod]
         public void Yields_Correct_Lines()
         {
-            var lines = ProcessExtensions.ExecuteAndRead(null, null, TestExe).ToList();
+            var lines = ProcessExtensions.ExecuteAndRead(null, false, false, null, TestExe).ToList();
             lines.ShouldBe(
                 new[]{
                     "aaa",
@@ -26,7 +26,7 @@ namespace MacroDiagnostics.Tests.ProcessExtensionsTests
         public void Throws_ProcessExecuteException_On_Unsuccessful_ExitCode()
         {
             Should.Throw<ProcessExecuteException>(() =>
-                ProcessExtensions.ExecuteAndRead(null, null, TestExe, "99").ToList());
+                ProcessExtensions.ExecuteAndRead(null, false, false, null, TestExe, "99").ToList());
         }
 
     }
